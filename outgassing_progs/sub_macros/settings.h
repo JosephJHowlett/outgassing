@@ -6,14 +6,14 @@ const int print = 0;        //set to 1 to save output plot
 const int fit = 1;          //set to 1 to fit outgassing to exp
 const int plot_number = 0;  //zero for single plot (black), one for first of many to be plotted on top, etc.
 const int skip_measurements_number = 1;
-const int skip_measurements [skip_measurements_number] = {3};
+const int skip_measurements [skip_measurements_number] = {};
 const int print_time_outgassing = 1;    //prints data points [x,y] to stdout
 const int draw_rga_scan = 1;
 
 TString img_name = "20140725_ptfe"; //save name for output plots
 
 /// Local Stuff ///
-TString file_header = "/home/outgassing/outgassing/"; //header for all .dat and prog directories
+TString file_header = "/Users/josephhowlett/research/outgassing/"; //header for all .dat and prog directories
 
 Double_t hwhm = .3; // can't remember how this gets used
 gErrorIgnoreLevel = 2001;

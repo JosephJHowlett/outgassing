@@ -5,16 +5,25 @@
 # readable by the outgassing code (analyze_rga_dat_new.c)
 
 from xml.dom import minidom
+import numpy as np
 import sys
 
 dat_fileheader = ''
 xml_fileheader = ''
-samples_per_amu = 20
 
 def xml_to_dat(fname):
    xmldoc = minidom.parse(fname)
    top_line = xmldoc.getElementsByTagName('Data')
    tot_pressure = top_line[0].attributes['TotalPressure'].value
+   samples_per_amu = int(top_line[0].attributes['SamplesPerAMU'].value)
+   low_mass = int(top_line[0].attributes['LowMass'].value)
+   high_mass = int(top_line[0].attributes['HighMass'].value)
+   # from manual, scan is really from LowMass-0.5 to HighMass+0.5
+   nb_bins = samples_per_amu*(high_mass-low_mass+1)
+   step_size = 1.0/samples_per_amu
+   low_lim = low_mass - 0.5 + (step_size/2.0)
+   high_lim = high_mass + 0.5 - (step_size/2.0)
+   x_vals = np.linspace(low_lim, high_lim, nb_bins)
    val_list = xmldoc.getElementsByTagName('Sample')
    values = []
    value = 0
@@ -25,15 +34,8 @@ def xml_to_dat(fname):
    dat_name = sys.argv[1] + '.dat'
    datfile = open(dat_fileheader + dat_name, 'w')
    datfile.write(str(tot_pressure) + '\n')
-   i = 1
-   amu = 1  # low mass set in RGA
-   for value in values:
-      if ((i+(samples_per_amu/2.0))%samples_per_amu==0):   # i + samples/amu/2 % samples/amu
-         datfile.write('subset 1\t\t' + str(amu) + '\t' + str(i) + '\t' + str(value) + '\n')
-         amu += 1
-      else:
-         datfile.write('subset 1\t\t' + str(i) + '\t' + str(value) + '\n')
-      i += 1
+   for i, value in enumerate(values):
+      datfile.write('%.3f\t%s\n' % (x_vals[i], value))
    datfile.close()
 
 

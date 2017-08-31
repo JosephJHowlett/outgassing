@@ -39,7 +39,7 @@ cout <<"scanning file"<<endl;
     while (getline (infile1,params)) {
       sscanf(params.c_str(), "%li %le", &ftime, &fpressure);
       if (i==0) t_0 = ftime;
-      time[i] = ftime + (5*3600);
+      time[i] = ftime;
       pressure[i] = fpressure;
       //cout<<"System time: "<<time[i]<<" Pressure [torr]: "<<pressure[i]<<endl;
       npts++;
