@@ -1,0 +1,45 @@
+#!/usr/local/bin/python
+
+# Usage './rga_xml_to_dat header' where header is the fname of the scan w/o extension
+# in the directory specified by xml_fileheader. It is then converted to a scan .dat 
+# readable by the outgassing code (analyze_rga_dat_new.c)
+
+from xml.dom import minidom
+import sys
+
+dat_fileheader = 'C:/users/xe/Desktop/outgassing/rga_measurements/'
+xml_fileheader = 'C:/users/xe/Desktop/outgassing/log_daemon/rga_xml/'
+
+def xml_to_dat(fname):
+   xmldoc = minidom.parse(fname)
+   top_line = xmldoc.getElementsByTagName('Data')
+   tot_pressure = top_line[0].attributes['TotalPressure'].value
+   val_list = xmldoc.getElementsByTagName('Sample')
+   values = []
+   value = 0
+   for s in val_list:
+      value = s.attributes['Value'].value
+      values.append(value)
+   # open new file
+   dat_name = sys.argv[1] + '.dat'
+   datfile = open(dat_fileheader + dat_name, 'w')
+   datfile.write(str(tot_pressure) + '\n')
+   i = 1
+   amu = 1  # low mass set in RGA
+   for value in values:
+      if ((i+10)%20==0):   # i + samples/amu/2 % samples/amu
+         datfile.write('subset 1\t\t' + str(amu) + '\t' + str(i) + '\t' + str(value) + '\n')
+         amu += 1
+      else:
+         datfile.write('subset 1\t\t' + str(i) + '\t' + str(value) + '\n')
+      i += 1
+   datfile.close()
+
+
+def main():
+   fname = sys.argv[1] + '.xml'  # input
+   xml_to_dat(xml_fileheader + fname)
+
+
+if __name__ == '__main__':
+   main()
