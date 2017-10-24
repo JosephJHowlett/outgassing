@@ -40,7 +40,7 @@ if (infile1.is_open()) {
   for (int i=0; i<(maxbins-1); i++) {
     while (getline (infile1,params)) {
       sscanf(params.c_str(), "%li %le", &ftime, &fpressure);
-      time[i] = ftime;
+      time[i] = ftime - (6*3600.0);
       pressure[i] = fpressure;
       npts++;
       if (i==0) t_0 = time[i];

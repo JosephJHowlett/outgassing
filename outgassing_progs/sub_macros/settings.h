@@ -6,7 +6,7 @@ const int print = 0;        //set to 1 to save output plot
 const int fit = 1;          //set to 1 to fit outgassing to exp
 const int plot_number = 0;  //zero for single plot (black), one for first of many to be plotted on top, etc.
 const int skip_measurements_number = 1;
-const int skip_measurements [skip_measurements_number] = {};
+const int skip_measurements [skip_measurements_number] = {6};
 const int print_time_outgassing = 1;    //prints data points [x,y] to stdout
 const int draw_rga_scan = 1;
 
@@ -33,6 +33,7 @@ Double_t input_mass = 0;
 long int time_bound_low, time_bound_high;
 Double_t p_bound_low, p_bound_high = 1.5;
 const int skip_measurement = 0;
+Double_t rough_oxygen_mass = 28.0;
 
 int my_colors [] = {kBlack, kRed, kBlue, 8, kMagenta+2, kOrange+1, kViolet-3, 28, 15};
 int my_markers [] = {20, 20, 22, 21, 33, 34, 23, 5, 3, 4, 24, 25, 26, 27};

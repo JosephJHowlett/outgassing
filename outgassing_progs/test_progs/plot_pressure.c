@@ -59,7 +59,7 @@ for(int i = 0;i<npts;i++)
 {
  if (dateaxis == 1)
  {
-  g->SetPoint(i,time[i],pressure[i]);
+  g->SetPoint(i,time[i] - (6*3600.0),pressure[i]);
  }
  else
  {

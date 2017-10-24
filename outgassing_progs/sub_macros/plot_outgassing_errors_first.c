@@ -76,7 +76,7 @@ fitfunc->SetParName(0,"constant");
 // hframe->GetXaxis()->SetTitle("Time [Hrs]");
 // hframe->GetYaxis()->SetTitle("Total Outgassing Rate [Torr*l/s]");
 
-fitfunc->SetParLimits(0,.5*final_val,final_val);
+fitfunc->SetParLimits(0,.1*final_val,final_val);
 fitfunc->SetParLimits(2,-1e-1,-1e-4);  // comment or change this line if problems arise
 // fitfunc->FixParameter(2,-3.434e-2);
 fitfunc->SetLineColor(my_colors[plot_number]);  //my_colors[5] is decent purp

@@ -8,8 +8,6 @@
 #include "settings.h"
 gROOT->Macro("style.C");
 
-// Double_t recorded_pressure = 5.50e-7;
-// Double_t recorded_pressure = 4.40e-5;
 
 struct rga_scan {
    Double_t mass, err, mass_peak, mass_fraction;
@@ -19,12 +17,14 @@ struct rga_scan {
 };
 
 
+
 rga_scan fitpeaks(TH1D *h1, Double_t input_mass, TString getpeaks) {
    Double_t meansum = 0;
    Double_t weightsum = 0;
    Double_t *xpeaks,*ypeaks;
    TSpectrum * spect = new TSpectrum(10);
-   int npeaks = spect->Search(h1,4,"nodraw",.05);
+   int npeaks = spect->Search(h1,4.0,"nodraw",.05);
+   //cout << npeaks << endl;
    const int numnum = npeaks;
    TList *funcs = h1->GetListOfFunctions();
    TPolyMarker *pm = (TPolyMarker*)funcs->FindObject("TPolyMarker");
@@ -40,6 +40,7 @@ rga_scan fitpeaks(TH1D *h1, Double_t input_mass, TString getpeaks) {
       meansum += (mean*ypeaks[i]);
       weightsum += ypeaks[i];
       xpeaks[i] = mean;
+      //cout << mean << endl;
    }
    Double_t meanmass = meansum/weightsum;
    Double_t count =0;
@@ -81,7 +82,7 @@ rga_scan fitpeaks(TH1D *h1, Double_t input_mass, TString getpeaks) {
 }
 
 
-void load_scan(TString fname,Double_t* x,Double_t* y,int &npts,Double_t &xax, Double_t &rga_pressure_tot=0.0)
+void load_scan(TString fname,Double_t* x,Double_t* y,int &npts,Double_t &xax, Double_t &rga_pressure_tot)
 {
    const int maxbins = 5001;
    int ii = 0;
@@ -118,7 +119,7 @@ void load_scan(TString fname,Double_t* x,Double_t* y,int &npts,Double_t &xax, Do
 }
 
 
-rga_scan analyze_rga_dat_decurtis(TString fname, Double_t input_mass = 0, TString getpeaks = "") //gets composition analysis from rga
+rga_scan analyze_rga_dat_oxygen(TString fname, Double_t input_mass, TString getpeaks = "") //gets composition analysis from rga
 {
 //    Double_t scan_time;
    ///// Background Subtraction /////
@@ -136,8 +137,8 @@ rga_scan analyze_rga_dat_decurtis(TString fname, Double_t input_mass = 0, TStrin
    Double_t xax=.5;    // low mass value of rga - .5 amu
    Double_t rga_pressure_tot = 0.0;
    load_scan(fname, x, y, npts, xax, rga_pressure_tot);
-   xax = x[npts];
-   cout << xax << endl;
+   xax = x[npts-1];
+   cout << rga_pressure_tot << endl;
    if (x[0]==10) {
       rga_scan means;
       means.mass=0;
@@ -146,6 +147,7 @@ rga_scan analyze_rga_dat_decurtis(TString fname, Double_t input_mass = 0, TStrin
    }
    else {
 ////  Finding Peaks  ////
+   //cout << xax << endl;
    TH1D * h1 = new TH1D("mhist","",npts,0,xax);
    TGraph * g = new TGraph();
    for(int i = 0;i<npts;i++)
@@ -160,16 +162,16 @@ rga_scan analyze_rga_dat_decurtis(TString fname, Double_t input_mass = 0, TStrin
    h1->SetMarkerColor(my_colors[0]);
    h1->SetLineColor(my_colors[0]);
 //    h2->SetLineWidth(.95);
-   h1->Draw("apl");
-   h1->SetStats(kFALSE);
-   h1->GetXaxis()->SetTitle("Mass (AMU)");
-   h1->GetYaxis()->SetTitle("Partial Pressure (Torr)");
 //    cout << scan.mass << endl;
    g->SetMarkerStyle(8);
    g->SetMarkerSize(.2);
    g->GetXaxis()->SetTitle("Mass (AMU)");
    g->GetYaxis()->SetTitle("Partial Pressure (Torr)");
    g->Draw("ap");
+   h1->Draw("plsame");
+   h1->SetStats(kFALSE);
+   h1->GetXaxis()->SetTitle("Mass (AMU)");
+   h1->GetYaxis()->SetTitle("Partial Pressure (Torr)");
    }
    return scan;
    }
