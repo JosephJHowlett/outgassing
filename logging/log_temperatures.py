@@ -4,7 +4,8 @@ import sys, os
 
 file_header = '/home/outgassing/outgassing/temperature_data/'
 
-ser = serial.Serial('/dev/ttyACM0', 9600)
+#ser = serial.Serial('/dev/ttyACM0', 9600)
+ser = serial.Serial('/dev/arduino', 9600)
 nowtime = strftime("%Y-%m-%d %H:%M:%S")
 nowtime2 = strftime("%Y%m%d_%H%M%S")
 #filename = os.path.join(os.getcwd(), 'temperature_logs/', nowtime2+'-temperature.log')

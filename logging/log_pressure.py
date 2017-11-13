@@ -16,6 +16,7 @@ file1.write('Pfeiffer read started at '+nowtime + ' (EDT)\n' + 'Time (s)\tPressu
 file1.close()
 while True:
     mg = MaxiGauge('/dev/my_usb_serial')
+    #mg = MaxiGauge('/dev/ttyUSB0')
     ps = mg.pressures()
     file1 = open(filename,'a')
     #file1.write(str(time.time())+'\n')
