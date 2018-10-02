@@ -15,7 +15,6 @@ except IndexError:
 A = .3*.185 # m^2
 A = 1223.6 * (10**(-4)) # m^2 using full SA
 d = 5.3e-3 # meters of half-thickness 0.0053
-#d = 1.0e-2 #
 c1_torr = 10.0**(p0*np.log10(e))
 c1 = 10.0**(p0*np.log10(e))/7.5/A # Pa*m^3/m^2/s
 c2 = -1.0/p1*3600.0 # s

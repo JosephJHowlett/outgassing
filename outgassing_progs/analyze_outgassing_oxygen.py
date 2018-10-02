@@ -50,6 +50,10 @@ def get_parsed_args():
                             action = 'store_true',
                             help = """Set \"False\" to not plot outgassing data."""
                        )
+    parser.add_argument(
+                            '--plot_measurements',
+                            help = """Plot measurements found by framework."""
+                       )
     return parser.parse_args()
 
 
@@ -94,7 +98,7 @@ def plot_temperatures(ax, filename):
     datetimes = dates.date2num([datetime.fromtimestamp(time-(4*3600), tz=tz.tzutc()) for time in times])
     ax.plot_date(datetimes, t_ambient, 'g.', label='T_ambient')
     ax.plot_date(datetimes, t_plate, 'b.', label='T_plate')
-    ax.plot_date(datetimes, t_sample, 'r.', label='T_sample')
+    #ax.plot_date(datetimes, t_sample, 'r.', label='T_sample')
     return
 
 def plot_only_temperatures(filename):
@@ -139,7 +143,9 @@ def find_asymptotes(filename, t0=0, plot=False, plot_fits=False):
             continue
         if (
                 (climbing == 0) and
-                ((pressures[i] - pressures[i-1])/pressures[i-1] > settings.initial_jump_threshold)
+                ((pressures[i] - pressures[i-1])/pressures[i-1] > settings.initial_jump_threshold) and
+                (pressures[i+1] > pressures[i]) and
+                ((times[i] - times[i-1]) < 180.)
            ):
             # big pressure jump, starting climb (valve closed)
             start_indices.append(i)
@@ -169,6 +175,9 @@ def find_asymptotes(filename, t0=0, plot=False, plot_fits=False):
             plt.plot(x, asymptotic(x, *popt), 'r--')
             plt.show()
     if plot:
+        for measurement_index in settings.skip_measurements:
+            start_indices.pop(measurement_index)
+            end_indices.pop(measurement_index)
         fig = plt.figure(figsize=(10,6))
         ax = fig.add_subplot(111)
         datetimes = dates.date2num([datetime.fromtimestamp(time-(4*3600), tz=tz.tzutc()) for time in times])
@@ -310,7 +319,7 @@ def plot_outgassing_errors(
     ax.set_yscale('log')
     ax.grid()
     plt.xlabel('Time Under Vacuum [Hrs]')
-    plt.ylabel('Sample Oxygen Outgassing Rate [Torr*l/s]')
+    plt.ylabel('Room Temp. Oxygen Outgassing [$Torr*l/s/cm^2$]')
 
 def save_to_pickle(pickle_name, time_hrs, outgassings, outgassing_errs):
     output_dict = {}
@@ -325,8 +334,8 @@ def plot_from_pickle(ax, pickle_name, color='k', last_plot=True, label='', fit='
     plot_outgassing_errors(
                             ax,
                             outgassing_dict['time_hrs'],
-                            outgassing_dict['outgassings'],
-                            outgassing_dict['outgassing_errs'],
+                            outgassing_dict['outgassings']/288.75948,
+                            outgassing_dict['outgassing_errs']/288.75948,
                             settings.area,
                             color=color,
                             last_plot=last_plot,
@@ -376,7 +385,7 @@ def calculate_outgassing(filename, t0=0, input_mass = 32.0):
 def calculate_oxygen_outgassing(args):
     time_hrs, outgassings, outgassing_errs = calculate_outgassing(args.calculate_oxygen_outgassing)
     if args.pickle_output:
-        save_to_pickle(args.pressure_filename.split('.')[0], time_hrs, outgassings, outgassing_errs)
+        save_to_pickle(args.calculate_oxygen_outgassing.split('.')[0], time_hrs, outgassings, outgassing_errs)
     if args.plot:
         plt.show()
 
@@ -390,20 +399,62 @@ def plot_two_from_pickle(args):
     plot_from_pickle(ax, args.plot_comparison_from_pickle[1], color='b', last_plot=True, label=labels[1], fit='exp_exp')
     ax.grid()
     plt.legend(loc='best')
-    #plt.savefig('ptfe_torlon_comparison_double_exponential_constant_fit.png')
+    plt.xlim([10,150])
+    #plt.ylim([1e-12, 3e-11])
+    plt.ylim([3e-15, 1e-13])
+    plt.savefig('ptfe_torlon_comparison_double_exponential_constant_fit_big_specific.png')
     plt.show()
 
 def main():
     args = get_parsed_args()
     if args.calculate_oxygen_outgassing:
         calculate_oxygen_outgassing(args)
+        sys.exit()
+        time_hrs, outgassings, outgassing_errs = calculate_outgassing(args.calculate_oxygen_outgassing)
+        plt.show()
+        sample_temps = [24.5, 2.3, -11.9, -15.9, -11.9, -7.0]
+        plate_temps = [28.0, -17.6, -47.9, -72.7, -117.5, -30.1]
+        fig = plt.figure(figsize=(10,6))
+        plt.plot(outgassings, sample_temps, 'r.', label='Sample')
+        plt.plot(outgassings, plate_temps, 'b.', label='Plate')
+        plt.xscale('log')
+        plt.grid()
+        plt.xlabel('Oxygen Outgassing [torr*l/s]')
+        plt.ylabel('Temperature [deg C]')
+        plt.legend(loc=4)
+        plt.show()
     elif args.plot_comparison_from_pickle:
-        print(args.plot_comparison_from_pickle)
+        plt.rcParams['font.size'] = 18
+        import matplotlib
+        matplotlib.rcParams.update({
+        'xtick.major.size' : 16,
+        'xtick.minor.size' : 8,
+        'ytick.major.size' : 16,
+        'ytick.minor.size' : 8,
+        'xtick.major.width' : 2,
+        'xtick.minor.width' : 2,
+        'ytick.major.width' : 2,
+        'ytick.minor.width' : 2,
+
+        'xtick.direction' : 'in',
+        'ytick.direction' : 'in',
+        'lines.markersize' : 12,
+        'lines.markeredgewidth' : 3,
+        'errorbar.capsize' : 8,
+
+        'lines.linewidth' : 3,
+        'lines.linestyle' : 'None',
+        'lines.marker' : 'None',
+
+        'savefig.bbox' : 'tight',
+        })
         plot_two_from_pickle(args)
     elif args.plot_pressure:
         plot_pressure(args.plot_pressure)
     elif args.plot_temperatures:
         plot_only_temperatures(args.plot_temperatures)
+    elif args.plot_measurements:
+        find_asymptotes(args.plot_measurements, plot=True, plot_fits=True)
 
 if __name__=='__main__':
     main()
