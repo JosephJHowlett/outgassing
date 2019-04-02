@@ -335,7 +335,7 @@ def load_rga_trend_xml(filename, plot=True):
         #for pp in partial_pressures:
         #    plt.plot(range(len(pp)), pp)
         plt.show()
-    return times, partial_pressures, tot_pressure
+    return times, partial_pressures
 
 
 def analyze_rga_scan(filename, pressure, input_mass=32.0, plot=True):
