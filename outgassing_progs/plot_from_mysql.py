@@ -34,16 +34,21 @@ def datenum_to_epoch(datenum, dst=True):
     if dst:
         offset = 1
     day = int(datenum[4:6])
-    hour = (int(datenum[6:8]) - offset)
-    if hour < 0:
-        day -= 1
+    if len(datenum)==6:
+        hour = minute = second = 0
+    else:
+        hour = (int(datenum[6:8]) - offset)
+        if hour < 0:
+            day -= 1
+        minute = int(datenum[8:10])
+        second = int(datenum[10:12])
     nowtime = datetime(
         int('20'+datenum[0:2]),
         int(datenum[2:4]),
         day,
         hour % 24,
-        int(datenum[8:10]),
-        int(datenum[10:12]),
+        minute,
+        second,
         tzinfo=pytz.timezone('US/Eastern')
         )
     thentime = datetime(1970, 1, 1, tzinfo=pytz.utc)
