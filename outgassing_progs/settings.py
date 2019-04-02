@@ -1,6 +1,6 @@
 import os
 
-head_dir = '/Users/josephhowlett/research/outgassing/'
+head_dir = '/home/outgas/outgassing_git'
 pressure_dir = os.path.join(head_dir, 'pressure_data')
 temperature_dir = os.path.join(head_dir, 'temperature_data')
 rga_dir = os.path.join(head_dir, 'rga_xmls')
