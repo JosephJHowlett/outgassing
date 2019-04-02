@@ -291,6 +291,7 @@ def get_rga_filenames(measurement_times):
     rga_filename_strings = [string + '.xml' for string in rga_filename_strings]
     return rga_filename_strings
 
+
 def load_rga_xml(filename, plot=True):
     xmldoc = minidom.parse(os.path.join(settings.rga_dir, filename))
     top_line = xmldoc.getElementsByTagName('Data')
@@ -316,6 +317,26 @@ def load_rga_xml(filename, plot=True):
         plt.yscale('log')
         plt.show()
     return masses, partial_pressures, tot_pressure
+
+
+def load_rga_trend_xml(filename, plot=True):
+    xmldoc = minidom.parse(os.path.join(settings.rga_dir, filename))
+    top_line = xmldoc.getElementsByTagName('Data')
+    val_list = xmldoc.getElementsByTagName('Sample')
+    partial_pressures = np.zeros((settings.trend_n_peaks, len(val_list)/settings.trend_n_peaks))
+    for i in range(len(val_list)):
+        value = val_list[i].attributes['Value'].value
+        partial_pressures[i % settings.trend_n_peaks, i/settings.trend_n_peaks] = value
+    time_per_point = 5 * settings.trend_n_peaks * settings.trend_dwell
+    times = np.array(range(settings.trend_samples))*time_per_point # seconds
+    if plot:
+        plt.figure(figsize=(10,6))
+        plt.plot(times, partial_pressures[settings.trend_peaks['oxygen']/settings.trend_peaks['total']])
+        #for pp in partial_pressures:
+        #    plt.plot(range(len(pp)), pp)
+        plt.show()
+    return times, partial_pressures, tot_pressure
+
 
 def analyze_rga_scan(filename, pressure, input_mass=32.0, plot=True):
     # simple scanning based on max pressure amplitude +- 0.3 AMU from input_mass

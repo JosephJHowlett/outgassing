@@ -1,10 +1,19 @@
 import os
 
-head_dir = '/home/outgas/outgassing_git'
+head_dir = '/Users/josephhowlett/research/outgassing'
 pressure_dir = os.path.join(head_dir, 'pressure_data')
 temperature_dir = os.path.join(head_dir, 'temperature_data')
 rga_dir = os.path.join(head_dir, 'rga_xmls')
 pickle_dir = os.path.join(head_dir, 'outgassing_pkls')
+
+# trend mode info
+trend_samples = 300
+trend_dwell = 0.100 # s
+trend_peaks = {
+    'oxygen': 5,
+    'total': 7
+    }
+trend_n_peaks = 9
 
 # PTFE and Torlon dimensions
 # L = 5.845 in = 14.846 cm
