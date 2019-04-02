@@ -34,16 +34,21 @@ def datenum_to_epoch(datenum, dst=True):
     if dst:
         offset = 1
     day = int(datenum[4:6])
-    hour = (int(datenum[6:8]) - offset)
-    if hour < 0:
-        day -= 1
+    if len(datenum)==6:
+        hour = minute = second = 0
+    else:
+        hour = (int(datenum[6:8]) - offset)
+        if hour < 0:
+            day -= 1
+        minute = int(datenum[8:10])
+        second = int(datenum[10:12])
     nowtime = datetime(
         int('20'+datenum[0:2]),
         int(datenum[2:4]),
         day,
         hour % 24,
-        int(datenum[8:10]),
-        int(datenum[10:12]),
+        minute,
+        second,
         tzinfo=pytz.timezone('US/Eastern')
         )
     thentime = datetime(1970, 1, 1, tzinfo=pytz.utc)
@@ -55,8 +60,8 @@ def get_data_from_mysql(table, column_name, t0=1410802453, t1=int(time.time())):
     database_user = credentials.database_user
     database_pass = credentials.database_pass
 
-    #pid = os.spawnlp(os.P_NOWAIT, 'ssh', 'ssh', '-L', '3307:localhost:3306', '-N', credentials.server_address, '-p', '7920')
-    #time.sleep(1)
+    pid = os.spawnlp(os.P_NOWAIT, 'ssh', 'ssh', '-L', '3307:localhost:3306', '-N', credentials.server_address, '-p', '7920')
+    time.sleep(1)
 
     # open the connection to the database
     try:
@@ -72,7 +77,7 @@ def get_data_from_mysql(table, column_name, t0=1410802453, t1=int(time.time())):
     data = cursor.fetchall()
     connection.close()
 
-    #os.kill(pid, signal.SIGTERM)
+    os.kill(pid, signal.SIGTERM)
 
     return data
 
