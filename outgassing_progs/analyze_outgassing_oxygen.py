@@ -17,6 +17,7 @@ from temp_reader import *
 import settings
 import plotters
 from plotters import *
+from glob import glob
 
 def get_parsed_args():
     parser = argparse.ArgumentParser(description="Analysis for outgassing data.")
@@ -60,6 +61,11 @@ def get_parsed_args():
                             help = """Set \"False\" to avoid pickling outgassing data."""
                        )
     parser.add_argument(
+                            '--fit_measurement_pressures',
+                            action = 'store_true',
+                            help = """Set \"False\" to take last measurement value."""
+                       )
+    parser.add_argument(
                             '--plot',
                             action = 'store_true',
                             help = """Set \"False\" to not plot outgassing data."""
@@ -78,7 +84,13 @@ def get_parsed_args():
 def asymptotic(x, amp, rate, mean):
     return amp*(1.0 - np.exp(-1*rate*(x - mean)))
 
-def find_asymptotes(filename, t0=0, plot=True, plot_fits=True, bypass = 'on'):
+def find_asymptotes(
+        filename,
+        t0=0,
+        plot=True,
+        plot_fits=True,
+        fit_measurement_pressures=True,
+    ):
     with open(os.path.join(settings.pressure_dir, filename), 'r') as f:
         lines = f.readlines()
     times = []
@@ -88,116 +100,82 @@ def find_asymptotes(filename, t0=0, plot=True, plot_fits=True, bypass = 'on'):
             continue
         times.append(int(line.split()[0]))
         pressures.append(float(line.split()[1]))
+    # set up any forced measurement times
+    rga_on_measurement_inds = [
+        np.absolute(
+            np.asarray(times) - time
+        ).argmin() for time in settings.rga_on_measurements
+    ]
     climbing = 0
     start_indices = []
     end_indices = []
-    if bypass == 'on':
-        for i in range(len(times)-1):
-            if (
-                    (pressures[i]==0) or
-                    (pressures[i-1]==0) or
-                    (i==0) or
-                    (i-1 in start_indices) or
-                    (i-1 in end_indices)
-               ):
-                continue
-            if (
-                    (climbing == 0) and
-                    ((pressures[i] - pressures[i-1])/pressures[i-1] > settings.initial_jump_threshold) and
-                    (pressures[i+1] > pressures[i]) and
-                    ((times[i] - times[i-1]) < 180.)
-               ):
-                # big pressure jump, starting climb (valve closed)
-                start_indices.append(i)
-                climbing = 1
-            if (
-                    (times[i+1] - times[i] > settings.offtime_threshold_seconds)
-               ):
-               #  gauge about to be turned off - measurement taken
-                end_indices.append(i)
-	        if climbing ==0:
-	            start_indices.append(i-20)
-                climbing = 0
-        print('Found %i measurements' % len(start_indices))
-        if t0==0:
-            t0 = times[0]
-        measurement_times = [times[i] for i in end_indices]
+    for i in range(len(times)-1):
+        if (
+                (pressures[i]==0) or
+                (pressures[i-1]==0) or
+                (i==0) or
+                (i-1 in start_indices) or
+                (i-1 in end_indices)
+           ):
+            continue
+        if (
+                (climbing == 0) and
+                ((pressures[i] - pressures[i-1])/pressures[i-1] > settings.initial_jump_threshold) and
+                (pressures[i+1] > pressures[i]) and
+                ((times[i] - times[i-1]) < 180.)
+           ):
+            # big pressure jump, starting climb (valve closed)
+            start_indices.append(i)
+            climbing = 1
+        if (
+                (times[i+1] - times[i] > settings.offtime_threshold_seconds)
+                or (i in rga_on_measurement_inds)
+           ):
+           #  gauge about to be turned off - measurement taken
+            end_indices.append(i)
+            if climbing ==0:
+                start_indices.append(i-20)
+            climbing = 0
+    print('Found %i measurements' % len(start_indices))
+    if t0==0:
+        t0 = times[0]
+    measurement_times = [times[i] for i in end_indices]
 
-        # initialize the pressures at the final values
-        measurement_pressures = [pressures[i] for i in end_indices]
-        #measurement_pressures = [pressures[i+36] for i in start_indices]
-	#adjusted_indices = [(i + 36) for i in start_indices]
-	#adjusted_indices[8] = end_indices[8]
-	#adjusted_indices[9] = end_indices[9]
-	pressure_err = []
+    # initialize the pressures at the final values
+    measurement_pressures = [pressures[i] for i in end_indices]
 
     # then loop through and fit each set to get ultimate pressure
+    print(fit_measurement_pressures)
+    if fit_measurement_pressures:
         for i in range(len(end_indices)):
             times_in_range = times[start_indices[i]+1:end_indices[i]]
-	    better_range = times[start_indices[i]+10:end_indices[i]]
+            better_range = times[start_indices[i]+10:end_indices[i]]
             pressures_in_range = pressures[start_indices[i]+1:end_indices[i]]
-	    better_range_p = pressures[start_indices[i]+10:end_indices[i]]
+            better_range_p = pressures[start_indices[i]+10:end_indices[i]]
 
-	    #times_in_range = times[start_indices[i]+1:adjusted_indices[i]]
-            #pressures_in_range = pressures[start_indices[i]+1:adjusted_indices[i]]
-            popt, popcov = curve_fit(asymptotic, times_in_range, pressures_in_range, p0=[pressures_in_range[-1], 1.0/1200.0, times_in_range[0]])
-	    popt, popcov = curve_fit(asymptotic, better_range, better_range_p, p0=[better_range_p[-1], 1.0/1200.0, times_in_range[0]])
+            popt, popcov = curve_fit(
+                asymptotic,
+                times_in_range,
+                pressures_in_range,
+                p0=[pressures_in_range[-1],
+                1.0/1200.0, times_in_range[0]]
+            )
+            popt, popcov = curve_fit(asymptotic,
+                better_range,
+                better_range_p,
+                p0=[better_range_p[-1],
+                1.0/1200.0,
+                times_in_range[0]]
+            )
             measurement_pressures[i] = popt[0]
-	    pressure_err.append(settings.pressure_stat_err*measurement_pressures[i])
             if plot_fits:
                 plt.plot(times_in_range, pressures_in_range, 'k.')
                 x = np.linspace(times_in_range[0], times_in_range[-1], len(times_in_range)*10)
                 plt.plot(x, asymptotic(x, *popt), 'r--')
                 plt.show()
-    
-    if bypass == 'off':
-	custom_range = [100, 100, 100, 100]
-	counter = 0
-        for i in range(len(times)-1):
-            if (
-                    (pressures[i]==0) or
-                    (pressures[i-1]==0) or
-                    (i==0) or
-                    (i-1 in start_indices) or
-                    (i-1 in end_indices)
-               ):
-                continue
-            if (
-                    (times[i+1] - times[i] > settings.offtime_threshold_seconds)
-               ):
-                # gauge about to be turned off - measurement taken
-                end_indices.append(i)
-	        start_indices.append(i-custom_range[counter])
-		#start_indices.append(i-60)
-		counter = counter + 1
-	#end_indices[3] = end_indices[3] - 120
-	#start_indices[3] = start_indices[3] - 120
-	holder = [start_indices[1], end_indices[1]]
-	holder2 = [start_indices[2], end_indices[2]]
-	start_indices[1] = start_indices[0] + 500
-	end_indices [1] = end_indices[0] + 500
-	start_indices[2] = (start_indices[1] + 700)
-	end_indices[2] = (end_indices[1] + 900)
-	start_indices.append(holder[0])
-	end_indices.append(holder[1])
-	start_indices.append(holder2[0])
-	end_indices.append(holder2[1])
-        print('Found %i measurements' % len(start_indices))
-        if t0==0:
-            t0 = times[0]
-        measurement_times = [times[i] for i in end_indices]
 
-        # initialize the pressures at the final values
-        measurement_pressures = []
-	pressure_err = []
-
-        # find median pressure in range
-        for i in range(len(end_indices)):
-            times_in_range = times[start_indices[i]+1:end_indices[i]]
-            pressures_in_range = pressures[start_indices[i]+1:end_indices[i]]
-            measurement_pressures.append(np.median(pressures_in_range))
-	    pressure_err.append(np.std(pressures_in_range))
-
+    # assume constant fractional uncertainty
+    pressure_err = [settings.pressure_stat_err*p for p in measurement_pressures]
     #time error bars
     datetimes = dates.date2num([datetime.fromtimestamp(time-(4*3600), tz=tz.tzutc()) for time in times])
 
@@ -255,18 +233,6 @@ def find_asymptotes(filename, t0=0, plot=True, plot_fits=True, bypass = 'on'):
                         'm.',
                         label='Avg. pressure'
                     )
-        #ax.plot_date(
-                        #[datetimes[i] for i in adjusted_indices],
-                        #[pressures[i] for i in adjusted_indices],
-                        #'.',
-                        #label='Scan Begin Points-- adulterated'
-                    #)
-	#ax.plot_date(
-			#[datetimes[i] for i in first_indices],
-			#[pressures[i] for i in first_indices],
-			#'c.',
-			#label = 'First point after RGA'
-		   # )
         date_format = dates.DateFormatter('%Y/%m/%d\n%H:%M')
         ax.xaxis.set_major_formatter(date_format)
         fig.autofmt_xdate()
@@ -277,7 +243,7 @@ def find_asymptotes(filename, t0=0, plot=True, plot_fits=True, bypass = 'on'):
     return measurement_times, measurement_pressures, t0, time_errs, pressure_err
 
 
-def get_rga_filenames(measurement_times):
+def get_rga_filenames_2(measurement_times):
     rga_filename_strings = []
     nb_scans_from_date = 0
     for time in measurement_times:
@@ -289,6 +255,21 @@ def get_rga_filenames(measurement_times):
             nb_scans_from_date = 0
             rga_filename_strings.append(rga_string)
     rga_filename_strings = [string + '.xml' for string in rga_filename_strings]
+    return rga_filename_strings
+
+
+def get_rga_filenames(measurement_times):
+    """Searches rga_dir for filenames
+
+    Looks for files starting with measurement time in yymmdd format.
+    This loosens the naming convention so we can add more details.
+    """
+    rga_filename_strings = []
+    for time in measurement_times:
+        rga_string = datetime.fromtimestamp(time, tz=tz.gettz('America/New_York')).strftime('%y%m%d')
+        files = glob(os.path.join(settings.rga_dir, rga_string + '*xml'))
+        for name in files:
+            rga_filename_strings.append(name.split('/')[-1])
     return rga_filename_strings
 
 
@@ -310,11 +291,13 @@ def load_rga_xml(filename, plot=True):
     for s in val_list:
        value = s.attributes['Value'].value
        partial_pressures.append(value)
-    partial_pressures = np.asarray(partial_pressures)
+    partial_pressures = np.asarray(partial_pressures, dtype=np.float32)
     if plot:
         plt.figure(figsize=(10,6))
-        plt.plot(masses, partial_pressures, 'k.')
-        plt.yscale('log')
+        plt.plot(masses, partial_pressures, 'k-')
+        #plt.yscale('log')
+        plt.xlim([0,45])
+        plt.ylim([0,1.25e-6])
         plt.show()
     return masses, partial_pressures, tot_pressure
 
@@ -327,27 +310,30 @@ def load_rga_trend_xml(filename, plot=True):
     for i in range(len(val_list)):
         value = val_list[i].attributes['Value'].value
         partial_pressures[i % settings.trend_n_peaks, i/settings.trend_n_peaks] = value
-    time_per_point = 5 * settings.trend_n_peaks * settings.trend_dwell
+    time_per_point = settings.trend_n_peaks * settings.trend_dwell * 4.386 # * 5.0
     times = np.array(range(settings.trend_samples))*time_per_point # seconds
     if plot:
         plt.figure(figsize=(10,6))
         plt.plot(times, partial_pressures[settings.trend_peaks['oxygen']/settings.trend_peaks['total']])
         #for pp in partial_pressures:
         #    plt.plot(range(len(pp)), pp)
+        #plt.yscale('log')
         plt.show()
     return times, partial_pressures
 
 
 def analyze_rga_scan(filename, pressure, input_mass=32.0, plot=True):
     # simple scanning based on max pressure amplitude +- 0.3 AMU from input_mass
-    masses, partial_pressures, total_rga_pressure = load_rga_xml(filename, plot=plot)
+    masses, partial_pressures, total_rga_pressure = load_rga_xml(filename, plot=True)
     closest_mass = np.argmin(np.absolute(masses - input_mass))
     pressure_range = [float(partial_pressures[closest_mass])]
     for i in [1,2,3]:
         pressure_range.append(float(partial_pressures[closest_mass + i]))
 	pressure_range.append(float(partial_pressures[closest_mass - i]))
     peak_pressure = max(pressure_range)
-    peak_fraction = peak_pressure * float(pressure) / float(total_rga_pressure)
+    #peak_pressure = partial_pressures[closest_mass]
+    peak_fraction = peak_pressure / float(total_rga_pressure)
+    #peak_fraction = peak_pressure / np.sum(partial_pressures)
     return peak_fraction
 
 
@@ -412,7 +398,7 @@ def plot_outgassing_errors(
             print('Lifetime 2\t%.2f +/- %.2f hrs' % (best_fit_pars[3], np.sqrt(popcov[3][3])))
             print('Constant\t%.2e +/- %.2e torr*l/s' % (best_fit_pars[4], np.sqrt(popcov[4][4])))
             plt.plot(t_cont, exp_exp(t_cont, *best_fit_pars), '%s--' % color)
-    except RuntimeError:
+    except:
         print('fitting failed')
     plt.tick_params(axis='y', which='minor')
     ax = plt.gca()
@@ -445,18 +431,19 @@ def plot_from_pickle(ax, pickle_name, color='k', last_plot=True, label='', fit='
                           )
     return
 
-def calculate_outgassing(filename, t0= 1532040900, input_mass = 32.0):
-    measurement_times, measurement_pressures, t0, time_errs, pressure_err = find_asymptotes(filename, t0, plot=False, plot_fits=False)
-
-    #t0=1532040900, 1531171200, 1504394760
-    #plate_temps = [27.23, -18.47, -56.88, -96.22, -138]
-    #fig = plt.figure(figsize=(10,6))
-    #plt.plot(plate_temps, measurement_pressures, 'b.')
-    #plt.yscale('log')
-    #plt.grid()
-    #plt.xlabel('Temperature [deg C]')
-    #plt.ylabel('Pressure [Torr]')
-    #plt.show()
+def calculate_outgassing(
+        filename,
+        t0=1532040900,
+        input_mass=32.0,
+        fit_measurement_pressures=False
+    ):
+    measurement_times, measurement_pressures, t0, time_errs, pressure_err = find_asymptotes(
+        filename,
+        t0,
+        plot=False,
+        plot_fits=True,
+        fit_measurement_pressures=fit_measurement_pressures
+    )
 
     for measurement_index in settings.skip_measurements:
         measurement_times.pop(measurement_index)
@@ -473,8 +460,6 @@ def calculate_outgassing(filename, t0= 1532040900, input_mass = 32.0):
     print("Time (hrs):\tOutgassing (torr*l/s):\tPeak Fraction:")
     peak_fraction = settings.initial_peak_fraction
     pf = []
-    #uh_oh = [1.02e-08, 1.5e-08, 2.1e-08, 2.46e-08, 3.1e-08]
-    #uh_oh = [1.5e-08, 1.5e-08, 1.5e-08, 1.5e-08, 1.5e-08] 
     for (i, pressure) in enumerate(measurement_pressures):
         try:
             peak_fraction = analyze_rga_scan(
@@ -484,12 +469,11 @@ def calculate_outgassing(filename, t0= 1532040900, input_mass = 32.0):
                                                 plot=False
                                             )
         except IOError:
-            if (i==0) and (peak_fraction==0):
+            if (i==0):
                 print('\nCouldn\'t find first scan. Please input fraction manually or skip.\n')
                 sys.exit()
             else:
                 print('Couldn\'t find RGA scan %s. Using previous/input peak fraction' % rga_xml_filenames[i])
-	#peak_fraction = uh_oh[i]        
 	outgassings[i] = pressure * peak_fraction * conductance
         outgassing_errs[i] = (pressure_err[i]/pressure)*outgassings[i]*1.5
         time_hrs[i] = (measurement_times[i] - t0)/3600.0
@@ -498,6 +482,13 @@ def calculate_outgassing(filename, t0= 1532040900, input_mass = 32.0):
     fig = plt.figure(figsize=(10,6))
     ax = fig.add_subplot(111)
     plot_outgassing_errors(ax, time_hrs, outgassings, outgassing_errs, time_errs, settings.area, last_plot=True)
+
+    fig = plt.figure(figsize=(10,6))
+    plt.plot(time_hrs, measurement_pressures, 'k.')
+    plt.grid()
+    plt.xlabel('Time [Hrs]')
+    plt.ylabel('Asymptotic Pressure')
+    plt.show()
 
     fig = plt.figure(figsize=(10,6))
     plt.plot(time_hrs, pf, 'b.')
@@ -511,7 +502,7 @@ def calculate_outgassing(filename, t0= 1532040900, input_mass = 32.0):
 
 
 def calculate_oxygen_outgassing(args):
-    time_hrs, outgassings, outgassing_errs, time_errs, measurement_times = calculate_outgassing(args.calculate_oxygen_outgassing)
+    time_hrs, outgassings, outgassing_errs, time_errs, measurement_times = calculate_outgassing(args.calculate_oxygen_outgassing, fit_measurement_pressures=args.fit_measurement_pressures)
     if args.pickle_output:
         save_to_pickle(args.calculate_oxygen_outgassing.split('.')[0], time_hrs, outgassings, outgassing_errs)
     if args.plot:
@@ -587,7 +578,10 @@ if __name__=='__main__':
     args = get_parsed_args()
 
     if args.calculate_oxygen_outgassing:
-        time_hrs, outgassings, outgassing_errs, time_errs, measurement_times = calculate_outgassing(args.calculate_oxygen_outgassing)
+        time_hrs, outgassings, outgassing_errs, time_errs, measurement_times = calculate_outgassing(
+            args.calculate_oxygen_outgassing,
+            fit_measurement_pressures=args.fit_measurement_pressures
+        )
         plt.show()
 
     elif args.cooling:
@@ -633,6 +627,11 @@ if __name__=='__main__':
 	print args.plot_both
 	plot_both(args.plot_both[0], args.plot_both[1])
     elif args.plot_measurements:
-        find_asymptotes(args.plot_measurements, plot=True, plot_fits=True, bypass='on')
+        find_asymptotes(
+            args.plot_measurements,
+            plot=True,
+            plot_fits=True,
+            fit_measurement_pressures=args.fit_measurement_pressures
+        )
     elif args.coef:
 	coef_checker(args.coef[0], args.coef[1])
