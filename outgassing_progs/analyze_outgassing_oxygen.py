@@ -176,7 +176,7 @@ def find_asymptotes(
 
     # assume constant fractional uncertainty
     pressure_err = [settings.pressure_stat_err*p for p in measurement_pressures]
-    #time error bars
+    # time error bars
     datetimes = dates.date2num([datetime.fromtimestamp(time-(4*3600), tz=tz.tzutc()) for time in times])
 
     first_indices = []
@@ -213,7 +213,7 @@ def find_asymptotes(
         datetimes = dates.date2num([datetime.fromtimestamp(time-(4*3600), tz=tz.tzutc()) for time in times])
 
         
-	#plotting the points on pressure diagram
+	# plotting the points on pressure diagram
 	ax.plot_date(datetimes, pressures, 'k.')
         ax.plot_date(
                         [datetimes[i] for i in start_indices],
@@ -243,7 +243,7 @@ def find_asymptotes(
     return measurement_times, measurement_pressures, t0, time_errs, pressure_err
 
 
-def get_rga_filenames_2(measurement_times):
+def get_rga_filenames(measurement_times):
     rga_filename_strings = []
     nb_scans_from_date = 0
     for time in measurement_times:
@@ -258,7 +258,7 @@ def get_rga_filenames_2(measurement_times):
     return rga_filename_strings
 
 
-def get_rga_filenames(measurement_times):
+def get_rga_filenames_2(measurement_times):
     """Searches rga_dir for filenames
 
     Looks for files starting with measurement time in yymmdd format.
@@ -267,9 +267,11 @@ def get_rga_filenames(measurement_times):
     rga_filename_strings = []
     for time in measurement_times:
         rga_string = datetime.fromtimestamp(time, tz=tz.gettz('America/New_York')).strftime('%y%m%d')
-        files = glob(os.path.join(settings.rga_dir, rga_string + '*xml'))
+        files = glob(os.path.join(settings.rga_dir, rga_string + '*scan.xml'))
         for name in files:
             rga_filename_strings.append(name.split('/')[-1])
+    #rga_filename_strings[4] = rga_filename_strings[5]
+    print(rga_filename_strings)
     return rga_filename_strings
 
 
@@ -322,9 +324,9 @@ def load_rga_trend_xml(filename, plot=True):
     return times, partial_pressures
 
 
-def analyze_rga_scan(filename, pressure, input_mass=32.0, plot=True):
+def analyze_rga_scan(filename, pressure, input_mass=32.0, plot=True, tot_from_sum=False):
     # simple scanning based on max pressure amplitude +- 0.3 AMU from input_mass
-    masses, partial_pressures, total_rga_pressure = load_rga_xml(filename, plot=True)
+    masses, partial_pressures, total_rga_pressure = load_rga_xml(filename, plot=False)
     closest_mass = np.argmin(np.absolute(masses - input_mass))
     pressure_range = [float(partial_pressures[closest_mass])]
     for i in [1,2,3]:
@@ -333,9 +335,9 @@ def analyze_rga_scan(filename, pressure, input_mass=32.0, plot=True):
     peak_pressure = max(pressure_range)
     #peak_pressure = partial_pressures[closest_mass]
     peak_fraction = peak_pressure / float(total_rga_pressure)
-    #peak_fraction = peak_pressure / np.sum(partial_pressures)
-    return peak_fraction
-
+    if tot_from_sum:
+        peak_fraction = peak_pressure / float(np.sum(partial_pressures))
+    return peak_fraction, total_rga_pressure
 
 def exp_noconst(x, amp, tau):
     return float(amp)*np.exp(-x/float(tau))
@@ -349,14 +351,12 @@ def exp_exp(x, amp1, tau1, amp2, tau2, c):
 def plot_outgassing_errors(
                             ax, time_hrs, outgassings,
                             outgassing_errs, time_errs, area,
-                            fit='exp_const', color='k',
+                            fit='exp', color='k',
                             last_plot=True, label=''
                           ):
     # tries to fit the data to input function, then plots
-    # TODO: switch to -log likelihood minimizer
     outgassings = outgassings/area
     plt.errorbar(time_hrs, outgassings, yerr=outgassing_errs, xerr=time_errs, fmt='%s.' % color, label=label)
-    #ax.grid(which = 'minor')
     t_cont = np.linspace(12.0, time_hrs[-1]+12.0, 1000)
     print('\n============ Best Fit Parameters ============')
     print('Parameter:\tValue:')
@@ -406,7 +406,6 @@ def plot_outgassing_errors(
     ax.grid()
     plt.xlabel('Time Under Vacuum [Hrs]')
     plt.ylabel('Oxygen Outgassing [$Torr*l/s$]')
-    plt.savefig('expofit_180720_180725_ptfe_run.png')
 
 def save_to_pickle(pickle_name, time_hrs, outgassings, outgassing_errs):
     output_dict = {}
@@ -433,7 +432,7 @@ def plot_from_pickle(ax, pickle_name, color='k', last_plot=True, label='', fit='
 
 def calculate_outgassing(
         filename,
-        t0=1532040900,
+        t0=0.0,
         input_mass=32.0,
         fit_measurement_pressures=False
     ):
@@ -466,7 +465,8 @@ def calculate_outgassing(
                                                 rga_xml_filenames[i],
                                                 pressure,
                                                 input_mass=input_mass,
-                                                plot=False
+                                                plot=False,
+                                                tot_from_sum=False
                                             )
         except IOError:
             if (i==0):

@@ -19,8 +19,8 @@ if __name__=='__main__' and __package__ is None:
     from par_config import par_map
     import credentials
 else:
-    from .par_config import par_map
-    from . import credentials
+    from par_config import par_map
+    import credentials
 
 import argparse
 
@@ -65,7 +65,7 @@ def get_data_from_mysql(table, column_name, t0=1410802453, t1=int(time.time())):
 
     # open the connection to the database
     try:
-        connection = MySQLdb.connect('127.0.0.1', database_user, database_pass, 'smac', port=3306)
+        connection = MySQLdb.connect('127.0.0.1', database_user, database_pass, 'smac', port=3307)
         cursor = connection.cursor()
     except MySQLdb.Error, e:
         print 'problem connection to run database, error %d: %s' % (e.args[0], e.args[1])
@@ -91,7 +91,7 @@ def write_to_file(data, outfile):
 
 def read_from_file(infile):
     data = []
-    with open(outfile, 'r') as f:
+    with open(infile, 'r') as f:
         for row in f.readlines():
             data.append(np.asarray(row.split(), dtype=float).tolist())
     return data
@@ -132,7 +132,7 @@ def plot_directly(data, par_name, save_name=False, yscale='linear', newfig=True,
         ax.xaxis.set_major_formatter(date_format)
         if newfig:
             fig.autofmt_xdate()
-        plt.yscale('linear')
+        plt.yscale('log')
         plt.tick_params(axis='y', which='minor')
         ax.tick_params('y', colors=color)
         if ylim:
